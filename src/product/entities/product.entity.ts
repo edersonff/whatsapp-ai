@@ -15,7 +15,7 @@ export class Product {
   title?: string;
 
   @Column({ type: 'varchar', length: 255 })
-  url: string;
+  link: string;
 
   @Column({ type: 'text' })
   comment: string;

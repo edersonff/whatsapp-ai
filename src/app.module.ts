@@ -14,9 +14,12 @@ import { Video } from './video/entities/video.entity';
 import { Category } from './category/entities/category.entity';
 import { Social } from './social/entities/social.entity';
 import { Product } from './product/entities/product.entity';
+import { ScheduleModule } from '@nestjs/schedule';
+import { TasksModule } from './tasks/tasks.module';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot(),
     TypeOrmModule.forRoot({
       type: (process.env.DB_TYPE as 'mysql') || 'mysql',
@@ -36,6 +39,7 @@ import { Product } from './product/entities/product.entity';
     VideoModule,
     SocialModule,
     ProductModule,
+    TasksModule,
   ],
   controllers: [AppController],
   providers: [AppService],

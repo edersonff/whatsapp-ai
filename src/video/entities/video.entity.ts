@@ -22,11 +22,14 @@ export class Video {
   @Column({ type: 'varchar', length: 72 })
   link: string;
 
+  @Column({ type: 'varchar', length: 96 })
+  output: string;
+
   @Column({ type: 'enum', enum: ['youtube', 'tiktok', 'file'] })
   type: 'youtube' | 'tiktok' | 'file';
 
-  @Column({ type: 'enum', enum: ['draft', 'error', 'published'] })
-  status: 'draft' | 'error' | 'published';
+  @Column({ type: 'enum', enum: ['draft', 'error', 'ready', 'published'] })
+  status: 'draft' | 'error' | 'ready' | 'published';
 
   @Column({ type: 'varchar', length: 72, nullable: true })
   error?: string;

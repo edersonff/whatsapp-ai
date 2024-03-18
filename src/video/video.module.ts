@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Video])],
+  exports: [TypeOrmModule, VideoService],
   controllers: [VideoController],
   providers: [VideoService],
 })
