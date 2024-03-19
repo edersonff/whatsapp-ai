@@ -20,15 +20,19 @@ export class Service<Entity> {
     return this.repository.findOneBy(options);
   }
 
-  async create(user: DeepPartial<Entity>, options?: SaveOptions) {
-    await this.repository.save(user, options);
+  async create(data: DeepPartial<Entity>, options?: SaveOptions) {
+    await this.repository.save(data, options);
+  }
+
+  async createMany(data: DeepPartial<Entity>[], options?: SaveOptions) {
+    await this.repository.save(data, options);
   }
 
   async remove(id: number) {
     await this.repository.delete(id);
   }
 
-  async update(id: number, user: QueryDeepPartialEntity<Entity>) {
-    await this.repository.update(id, user);
+  async update(id: number, data: QueryDeepPartialEntity<Entity>) {
+    await this.repository.update(id, data);
   }
 }
