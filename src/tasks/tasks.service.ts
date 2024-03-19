@@ -1,6 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, UseGuards } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { Axios } from 'axios';
+import { Lang } from 'types/language/enum';
+import { AuthGuard } from 'src/auth/auth.guard';
+import { Category } from 'src/category/entities/category.entity';
+import { UsersService } from 'src/users/users.service';
+import { Video } from 'src/video/entities/video.entity';
 import { VideoService } from 'src/video/video.service';
 import {
   uniqueNamesGenerator,
@@ -9,6 +14,7 @@ import {
   countries,
   starWars,
 } from 'unique-names-generator';
+import { upload as uploadToYoutube } from 'youtube-videos-uploader';
 
 const TempMail = require('node-temp-mail');
 
@@ -203,10 +209,375 @@ class Trydub {
 export class TasksService {
   private readonly logger = new Logger(TasksService.name);
 
-  constructor(private readonly videoService: VideoService) {}
+  constructor(
+    private readonly videoService: VideoService,
+    private readonly userService: UsersService,
+  ) {}
 
-  @Cron('*/30 * * * *')
-  async handleCron() {
+  // @Cron('*/10 * * * *')
+  async publishVideosCron() {
+    const users = await this.userService.findAll({
+      where: {
+        videos: {
+          status: 'ready',
+        },
+      },
+      relations: {
+        videos: true,
+        socials: true,
+      },
+    });
+
+    if (users.length === 0) {
+      this.logger.debug('No users with ready videos', new Date());
+      return;
+    }
+  }
+
+  /**
+   * 
+   * 
+   * 
+   
+
+  import { upload } from 'youtube-videos-uploader' //Typescript
+//OR
+const { upload } = require('youtube-videos-uploader'); //vanilla javascript
+
+// recoveryemail is optional, only required to bypass login with recovery email if prompted for confirmation
+const credentials = { email: 'Your Email', pass: 'Your Password', recoveryemail: 'Your Recovery Email' }
+
+// minimum required options to upload video
+const video1 = { path: 'video1.mp4', title: 'title 1', description: 'description 1' }
+
+const onVideoUploadSuccess = (videoUrl) => {
+    // ..do something..
+}
+// Extra options like tags, thumbnail, language, playlist etc
+const video2 = { path: 'video2.mp4', title: 'title 2', description: 'description 2', thumbnail:'thumbnail.png', language: 'english', tags: ['video', 'github'], playlist: 'playlist name', channelName: 'Channel Name', onSuccess:onVideoUploadSuccess, skipProcessingWait: true, onProgress: (progress) => { console.log('progress', progress) }, uploadAsDraft: false, isAgeRestriction: false, isNotForKid: false, publishType: 'PUBLIC', isChannelMonetized: false }
+
+
+// Returns uploaded video links in array
+upload (credentials, [video1, video2]).then(console.log)
+
+// OR
+// This package uses Puppeteer, you can also pass Puppeteer launch configuration
+upload (credentials, [video1, video2], {headless:false}).then(console.log)
+
+// Refer Puppeteer documentation for more launch configurations like proxy etc
+// https://pptr.dev/#?product=Puppeteer&version=main&show=api-puppeteerlaunchoptions
+
+
+
+
+   */
+
+  private async uploadToYoutube(
+    video: Video & { category: Category },
+    credentials: { username: string; password: string },
+  ) {
+    const { username, password } = credentials;
+
+    const options = {
+      headless: false,
+    };
+
+    function coverterLanguage(lang: Lang) {
+      switch (lang) {
+        case 'en':
+          return 'english';
+        case 'es':
+          return 'spanish';
+        case 'de':
+          return 'german';
+        case 'fr':
+          return 'french';
+        case 'zh':
+          return 'chinese';
+        case 'ja':
+          return 'japanese';
+        case 'hi':
+          return 'hindi';
+        case 'ko':
+          return 'korean';
+        case 'pt':
+          return 'portuguese';
+        case 'it':
+          return 'italian';
+        case 'id':
+          return 'indonesian';
+        case 'nl':
+          return 'dutch';
+        case 'tr':
+          return 'turkish';
+        case 'fil':
+          return 'filipino';
+        case 'pl':
+          return 'polish';
+        case 'sv':
+          return 'swedish';
+        case 'bg':
+          return 'bulgarian';
+        case 'ro':
+          return 'romanian';
+        case 'ar':
+          return 'arabic';
+        case 'cs':
+          return 'czech';
+        case 'el':
+          return 'greek';
+        case 'fi':
+          return 'finnish';
+        case 'hr':
+          return 'croatian';
+        case 'hu':
+          return 'hungarian';
+        case 'ms':
+          return 'malay';
+        case 'no':
+          return 'norwegian';
+        case 'sk':
+          return 'slovak';
+        case 'da':
+          return 'danish';
+        case 'ta':
+          return 'tamil';
+        case 'uk':
+          return 'ukrainian';
+      }
+    }
+
+    const video1 = {
+      path: video.link,
+      title: video.name,
+      thumbnail: video.image,
+      tags: video.tags.split(','),
+      playlist: video.category.name,
+      skipProcessingWait: true,
+      isAgeRestriction: false,
+      isNotForKid: false,
+      publishType: 'PUBLIC' as const,
+      language: coverterLanguage(video.originalLanguage),
+      description: video.description,
+    };
+
+    await uploadToYoutube(
+      { email: username, pass: password },
+      [video1],
+      options,
+    );
+  }
+
+  /**
+   * curl -X POST "https://graph.facebook.com/v19.0/Your_page_id/video_reels" \
+       -H "Content-Type: application/json" \
+       -d '{
+             "upload_phase":"start",
+             "access_token":"Your_page_access_token"
+           }'
+  {
+    "video_id": "video-id",
+    "upload_url": "https://rupload.facebook.com/video-upload/video-id",
+  }   
+  
+  
+  curl -X POST "https://rupload.facebook.com/video-upload/v19.0/video_id" \
+       -H "Authorization: OAuth Your_page_access_token" \
+       -H "file_url: https://some.cdn.url/video.mp4"
+  
+       curl -X GET "https://graph.facebook.com/v19.0/video-id
+      ?fields=status
+      &access_token=Your_page_access_token"
+  
+      {
+    "status": {
+      "video_status": "processing",
+      "uploading_phase": {
+        "status": "complete",
+      },
+      "processing_phase": {
+        "status": "not_started",
+        "error": {
+          "message": "Resolution too low. Video must have a minimum resolution of 540p."
+        }
+      }
+      "publishing_phase": {
+        "status": "not_started",
+      }
+    }
+  }
+  
+  {
+    "status": {
+      "video_status": "processing", 
+      "uploading_phase": {
+        "status": "in_progress",
+        "bytes_transfered": 50002  
+      }
+      "processing_phase": {
+        "status": "not_started"
+      }
+      "publishing_phase": {
+        "status": "not_started",
+      }
+    }
+  }
+  
+  
+  curl -X POST "https://graph.facebook.com/v19.0/page-id/video_reels
+      ?access_token=Your_page_access_token
+      &video_id=video-id
+      &upload_phase=finish
+      &video_state=PUBLISHED
+      &description=What a beautiful day! #sunnyand72"
+  
+  
+  
+      // instagram
+  
+      https://graph.facebook.com/v19.0/{{ig_user_id}}/media?media_type=REELS&video_url={{video_url}}&caption=Hello World!&share_to_feed=false&access_token={{page_access_token}}
+  
+      https://graph.facebook.com/v19.0/{{ig_user_id}}/media_publish?creation_id={{ig_container_id}}&access_token={{page_access_token}}
+  
+   */
+  private async uploadToFacebook(video: Video, token: string) {
+    const api = new Axios({
+      baseURL: 'https://graph.facebook.com',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+    });
+
+    const data = {
+      upload_phase: 'start',
+      access_token: token,
+    };
+
+    const {
+      data: { video_id, upload_url },
+    } = await api.post('/v19.0/Your_page_id/video_reels', data);
+
+    await api.post(upload_url, {
+      headers: {
+        Authorization: `OAuth ${token}`,
+        file_url: video.link,
+      },
+    });
+
+    let {
+      data: { status },
+    } = await api.get(`/v19.0/${video_id}`, {
+      params: {
+        fields: 'status',
+        access_token: token,
+      },
+    });
+
+    while (status.video_status === 'processing') {
+      await wait(3000);
+      status = await api.get(`/v19.0/${video_id}`, {
+        params: {
+          fields: 'status',
+          access_token: token,
+        },
+      });
+    }
+
+    await api.post('/v19.0/page-id/video_reels', {
+      access_token: token,
+      video_id,
+      upload_phase: 'finish',
+      video_state: 'PUBLISHED',
+      description: video.name,
+    });
+  }
+
+  private async uploadToInstagram(video: Video, token: string) {
+    const api = new Axios({
+      baseURL: 'https://graph.facebook.com',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+    });
+
+    const {
+      data: { id: ig_user_id },
+    } = await api.get('/v19.0/me', {
+      params: {
+        fields: 'id',
+        access_token: token,
+      },
+    });
+
+    const {
+      data: { id: ig_container_id },
+    } = await api.post(
+      `/v19.0/${ig_user_id}/media`,
+      {
+        media_type: 'REELS',
+        video_url: video.link,
+        caption: video.name,
+        share_to_feed: false,
+        access_token: token,
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+      },
+    );
+
+    await api.post(
+      `/v19.0/${ig_user_id}/media_publish`,
+      {
+        creation_id: ig_container_id,
+        access_token: token,
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+      },
+    );
+  }
+
+  private async uploadToTiktok(video: Video, token: string) {
+    const api = new Axios({
+      baseURL: 'https://open.tiktokapis.com',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+    });
+
+    const data = {
+      post_info: {
+        title: video.name,
+        privacy_level: 'PUBLIC_TO_EVERYONE',
+        disable_duet: false,
+        disable_comment: false,
+        disable_stitch: false,
+        video_cover_timestamp_ms: 1000,
+      },
+      source_info: {
+        source: 'PULL_FROM_URL',
+        video_url: video.link,
+      },
+    };
+
+    await api.post('/v2/post/publish/video/init/', data);
+  }
+
+  // private async uploadToPinterest(video: Video, token: string) {
+  //   const formData = new FormData();
+
+  //   formData.append('media_type', 'video');
+  // }
+
+  // @Cron('*/30 * * * *')
+  async renderVideosCron() {
     const videos = await this.videoService.findAll({
       take: 5,
       where: {
@@ -235,13 +606,13 @@ export class TasksService {
       await trydub.login();
 
       for (const video of videos) {
-        const { link, name } = video;
+        const { link, name, originalLanguage, targetLanguage } = video;
 
         await trydub.postProject({
           name: name || 'Untitled' + Math.random(),
           sourceUrl: link,
-          sourceLanguage: 'en',
-          targetLanguage: 'pt',
+          sourceLanguage: originalLanguage,
+          targetLanguage: targetLanguage,
           mediaDuration: 0,
           includeBackground: true,
           speakerNumber: 0,

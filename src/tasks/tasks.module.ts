@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import { VideoModule } from 'src/video/video.module';
-import { VideoService } from 'src/video/video.service';
+import { UsersModule } from 'src/users/users.module';
 
 @Module({
-  imports: [VideoModule],
+  imports: [VideoModule, UsersModule],
   exports: [TasksService],
-  providers: [TasksService, VideoService],
+  providers: [TasksService],
 })
 export class TasksModule {}
