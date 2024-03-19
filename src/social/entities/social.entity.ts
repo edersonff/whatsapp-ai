@@ -29,8 +29,17 @@ export class Social {
     | 'snapchat'
     | 'twitter';
 
+  @Column({ type: 'enum', enum: ['credentials', 'token'] })
+  authType: 'credentials' | 'token';
+
   @Column({ type: 'varchar', length: 80 })
-  code: string;
+  username?: string;
+
+  @Column({ type: 'varchar', length: 80 })
+  password?: string;
+
+  @Column({ type: 'varchar', length: 80 })
+  token?: string;
 
   @ManyToOne(() => User, (user) => user.videos)
   user: User;
