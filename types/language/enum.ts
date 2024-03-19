@@ -1,0 +1,27 @@
+export const lang = [
+  'en',
+  'es',
+  'de',
+  'fr',
+  'zh',
+  'ja',
+  'hi',
+  'ko',
+  'pt',
+  'it',
+  'id',
+  'nl',
+  'tr',
+  'fil',
+  'pl',
+  'sv',
+  'bg',
+  'ro',
+  'ar',
+  'cs',
+  'el',
+  'fi',
+  'hr',
+];
+
+export type Lang = (typeof lang)[number];
