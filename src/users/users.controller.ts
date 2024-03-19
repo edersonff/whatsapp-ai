@@ -10,11 +10,11 @@ import {
 import { AuthGuard } from 'src/auth/auth.guard';
 import { AuthService } from 'src/auth/auth.service';
 
+@UseGuards(AuthGuard)
 @Controller('users')
 export class UsersController {
   constructor(private authService: AuthService) {}
 
-  @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.CREATED)
   @Put('/')
   update(@Request() _req) {
