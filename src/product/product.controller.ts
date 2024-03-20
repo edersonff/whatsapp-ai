@@ -13,17 +13,28 @@ import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { CategoryService } from 'src/category/category.service';
 
 @UseGuards(AuthGuard)
 @Controller('product')
 export class ProductController {
-  constructor(private readonly productService: ProductService) {}
+  constructor(
+    private readonly productService: ProductService,
+    private readonly categoryService: CategoryService,
+  ) {}
 
   @Post()
-  create(@Body() createProductDto: CreateProductDto, @Request() req) {
+  async create(@Body() createProductDto: CreateProductDto, @Request() req) {
     this.productService.setUserId(req.user.id);
 
-    return this.productService.create(createProductDto);
+    const { category } = createProductDto;
+
+    const foundCategory = await this.findCategory(category);
+
+    return this.productService.create({
+      ...createProductDto,
+      category: foundCategory,
+    });
   }
 
   @Get()
@@ -41,14 +52,21 @@ export class ProductController {
   }
 
   @Patch(':id')
-  update(
+  async update(
     @Param('id') id: string,
     @Body() updateProductDto: UpdateProductDto,
     @Request() req,
   ) {
     this.productService.setUserId(req.user.id);
 
-    return this.productService.update(+id, updateProductDto);
+    const { category } = updateProductDto;
+
+    const foundCategory = await this.findCategory(category);
+
+    return this.productService.update(+id, {
+      ...updateProductDto,
+      category: foundCategory,
+    });
   }
 
   @Delete(':id')
@@ -56,5 +74,17 @@ export class ProductController {
     this.productService.setUserId(req.user.id);
 
     return this.productService.remove(+id);
+  }
+
+  private async findCategory(category: string) {
+    const findCategory = await this.categoryService.findOne({
+      name: category,
+    });
+
+    if (!findCategory) {
+      throw new Error('Category not found');
+    }
+
+    return findCategory;
   }
 }

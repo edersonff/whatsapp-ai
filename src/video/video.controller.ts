@@ -44,11 +44,7 @@ export class VideoController {
 
     const tags = keywords.join(',');
 
-    const categoryFound = await this.categoryService.findOneOrFail({
-      where: {
-        name: category,
-      },
-    });
+    const foundCategory = await this.findCategory(category);
 
     return this.videoService.create({
       name: title,
@@ -58,7 +54,7 @@ export class VideoController {
       link,
       originalLanguage,
       targetLanguage,
-      category: categoryFound,
+      category: foundCategory,
     });
   }
 
@@ -95,11 +91,7 @@ export class VideoController {
 
     const tags = keywords.join(',');
 
-    const categoryFound = await this.categoryService.findOneOrFail({
-      where: {
-        name: category,
-      },
-    });
+    const foundCategory = await this.findCategory(category);
 
     return this.videoService.update(+id, {
       name: title,
@@ -109,7 +101,7 @@ export class VideoController {
       link,
       originalLanguage,
       targetLanguage,
-      category: categoryFound,
+      category: foundCategory,
     });
   }
 
@@ -118,5 +110,17 @@ export class VideoController {
     this.videoService.setUserId(req.user.id);
 
     return this.videoService.remove(+id);
+  }
+
+  private async findCategory(category: string) {
+    const findCategory = await this.categoryService.findOne({
+      name: category,
+    });
+
+    if (!findCategory) {
+      throw new Error('Category not found');
+    }
+
+    return findCategory;
   }
 }
