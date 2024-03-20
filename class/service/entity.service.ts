@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   DeepPartial,
   FindManyOptions,
+  FindOneOptions,
   FindOptionsWhere,
   ObjectId,
   Repository,
@@ -39,6 +40,12 @@ export class Service<Entity> {
     options = this.whereOption(options);
 
     return this.repository.findOneBy(options);
+  }
+
+  findOneOrFail(options: FindOneOptions<Entity>) {
+    options = this.whereOptions(options);
+
+    return this.repository.findOneOrFail(options);
   }
 
   async create(data: DeepPartial<Entity>, options?: SaveOptions) {

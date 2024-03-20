@@ -21,8 +21,10 @@ export class AuthService {
   }
 
   async signIn(email: string, password: string) {
-    const user = await this.usersService.findOne({
-      email,
+    const user = await this.usersService.findOneOrFail({
+      where: {
+        email,
+      },
     });
 
     const correctPassword = await bcrypt.compare(
@@ -50,7 +52,7 @@ export class AuthService {
     });
 
     if (user) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('User already exists');
     }
 
     signInDto.password = await this.hashPassword(signInDto.password);
