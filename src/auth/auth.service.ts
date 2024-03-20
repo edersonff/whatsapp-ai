@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from 'src/users/users.service';
 import * as bcrypt from 'bcrypt';
@@ -21,11 +26,13 @@ export class AuthService {
   }
 
   async signIn(email: string, password: string) {
-    const user = await this.usersService.findOneOrFail({
-      where: {
-        email,
-      },
+    const user = await this.usersService.findOne({
+      email,
     });
+
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
 
     const correctPassword = await bcrypt.compare(
       password.toString(),
@@ -33,7 +40,7 @@ export class AuthService {
     );
 
     if (!correctPassword) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     const payload = {
@@ -52,7 +59,7 @@ export class AuthService {
     });
 
     if (user) {
-      throw new UnauthorizedException('User already exists');
+      throw new HttpException('User already exists', HttpStatus.BAD_REQUEST);
     }
 
     signInDto.password = await this.hashPassword(signInDto.password);

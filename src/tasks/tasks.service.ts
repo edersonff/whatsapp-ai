@@ -1,4 +1,10 @@
-import { Injectable, Logger, UseGuards } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  Logger,
+  UseGuards,
+} from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { Axios } from 'axios';
 import { Lang } from 'types/language/enum';
@@ -129,7 +135,7 @@ class Trydub {
     const setCookie = data.headers['set-cookie'];
 
     if (!setCookie || typeof setCookie !== 'string') {
-      throw new Error('Error on login');
+      throw new Error('Cookie not found');
     }
 
     this.cookie = setCookie;
