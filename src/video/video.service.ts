@@ -26,7 +26,7 @@ export class VideoService extends Service<Video> {
 
     const videoDetails = html
       .split('videoDetails":')[1]
-      .split(',"annotations":')[0];
+      .split(',"playerConfig"')[0];
 
     const details = JSON.parse(videoDetails);
 

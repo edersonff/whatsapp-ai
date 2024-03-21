@@ -1,8 +1,8 @@
 export type VideoDetails = {
   videoId: string;
   title: string;
+  keywords?: string[];
   lengthSeconds: string;
-  keywords: string[];
   channelId: string;
   isOwnerViewing: boolean;
   shortDescription: string;
@@ -15,5 +15,7 @@ export type VideoDetails = {
     }[];
   };
   allowRatings: boolean;
-  viewCount: string;
+  author: string;
+  isPrivate: boolean;
+  isUnpluggedCorpus: boolean;
 };
