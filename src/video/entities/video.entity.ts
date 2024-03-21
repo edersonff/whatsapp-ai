@@ -39,7 +39,11 @@ export class Video {
   })
   targetLanguage: Lang;
 
-  @Column({ type: 'enum', enum: ['draft', 'error', 'ready', 'published'] })
+  @Column({
+    type: 'enum',
+    enum: ['draft', 'error', 'ready', 'published'],
+    default: 'draft',
+  })
   status: 'draft' | 'error' | 'ready' | 'published';
 
   @Column({ type: 'varchar', length: 96, nullable: true })
