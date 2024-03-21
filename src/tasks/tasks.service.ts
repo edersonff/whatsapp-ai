@@ -1,14 +1,6 @@
-import {
-  HttpException,
-  HttpStatus,
-  Injectable,
-  Logger,
-  UseGuards,
-} from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
+import { Injectable, Logger } from '@nestjs/common';
 import { Axios } from 'axios';
 import { Lang } from 'types/language/enum';
-import { AuthGuard } from 'src/auth/auth.guard';
 import { Category } from 'src/category/entities/category.entity';
 import { UsersService } from 'src/users/users.service';
 import { Video } from 'src/video/entities/video.entity';
@@ -238,45 +230,51 @@ export class TasksService {
       this.logger.debug('No users with ready videos', new Date());
       return;
     }
+
+    for (const user of users) {
+      const { videos, socials } = user;
+
+      for (const video of videos) {
+        const { output } = video;
+
+        if (!output) {
+          continue;
+        }
+
+        for (const social of socials) {
+          const { token, type, username, password } = social;
+
+          switch (type) {
+            case 'youtube':
+              await this.uploadToYoutube(video, { username, password });
+              break;
+            case 'meta':
+              await this.uploadToFacebook(video, token);
+              break;
+            case 'instagram':
+              await this.uploadToInstagram(video, token);
+              break;
+            case 'tiktok':
+              await this.uploadToTiktok(video, token);
+              break;
+            case 'pinterest':
+              // await this.uploadToPinterest(video, token);
+              break;
+          }
+        }
+
+        await this.videoService.update(video.id, {
+          status: 'published',
+        });
+
+        this.logger.debug('Video published', new Date());
+      }
+    }
+
+    this.logger.debug('All videos published', new Date());
+
+    return;
   }
-
-  /**
-   * 
-   * 
-   * 
-   
-
-  import { upload } from 'youtube-videos-uploader' //Typescript
-//OR
-const { upload } = require('youtube-videos-uploader'); //vanilla javascript
-
-// recoveryemail is optional, only required to bypass login with recovery email if prompted for confirmation
-const credentials = { email: 'Your Email', pass: 'Your Password', recoveryemail: 'Your Recovery Email' }
-
-// minimum required options to upload video
-const video1 = { path: 'video1.mp4', title: 'title 1', description: 'description 1' }
-
-const onVideoUploadSuccess = (videoUrl) => {
-    // ..do something..
-}
-// Extra options like tags, thumbnail, language, playlist etc
-const video2 = { path: 'video2.mp4', title: 'title 2', description: 'description 2', thumbnail:'thumbnail.png', language: 'english', tags: ['video', 'github'], playlist: 'playlist name', channelName: 'Channel Name', onSuccess:onVideoUploadSuccess, skipProcessingWait: true, onProgress: (progress) => { console.log('progress', progress) }, uploadAsDraft: false, isAgeRestriction: false, isNotForKid: false, publishType: 'PUBLIC', isChannelMonetized: false }
-
-
-// Returns uploaded video links in array
-upload (credentials, [video1, video2]).then(console.log)
-
-// OR
-// This package uses Puppeteer, you can also pass Puppeteer launch configuration
-upload (credentials, [video1, video2], {headless:false}).then(console.log)
-
-// Refer Puppeteer documentation for more launch configurations like proxy etc
-// https://pptr.dev/#?product=Puppeteer&version=main&show=api-puppeteerlaunchoptions
-
-
-
-
-   */
 
   private async uploadToYoutube(
     video: Video & { category: Category },
@@ -374,78 +372,6 @@ upload (credentials, [video1, video2], {headless:false}).then(console.log)
     );
   }
 
-  /**
-   * curl -X POST "https://graph.facebook.com/v19.0/Your_page_id/video_reels" \
-       -H "Content-Type: application/json" \
-       -d '{
-             "upload_phase":"start",
-             "access_token":"Your_page_access_token"
-           }'
-  {
-    "video_id": "video-id",
-    "upload_url": "https://rupload.facebook.com/video-upload/video-id",
-  }   
-  
-  
-  curl -X POST "https://rupload.facebook.com/video-upload/v19.0/video_id" \
-       -H "Authorization: OAuth Your_page_access_token" \
-       -H "file_url: https://some.cdn.url/video.mp4"
-  
-       curl -X GET "https://graph.facebook.com/v19.0/video-id
-      ?fields=status
-      &access_token=Your_page_access_token"
-  
-      {
-    "status": {
-      "video_status": "processing",
-      "uploading_phase": {
-        "status": "complete",
-      },
-      "processing_phase": {
-        "status": "not_started",
-        "error": {
-          "message": "Resolution too low. Video must have a minimum resolution of 540p."
-        }
-      }
-      "publishing_phase": {
-        "status": "not_started",
-      }
-    }
-  }
-  
-  {
-    "status": {
-      "video_status": "processing", 
-      "uploading_phase": {
-        "status": "in_progress",
-        "bytes_transfered": 50002  
-      }
-      "processing_phase": {
-        "status": "not_started"
-      }
-      "publishing_phase": {
-        "status": "not_started",
-      }
-    }
-  }
-  
-  
-  curl -X POST "https://graph.facebook.com/v19.0/page-id/video_reels
-      ?access_token=Your_page_access_token
-      &video_id=video-id
-      &upload_phase=finish
-      &video_state=PUBLISHED
-      &description=What a beautiful day! #sunnyand72"
-  
-  
-  
-      // instagram
-  
-      https://graph.facebook.com/v19.0/{{ig_user_id}}/media?media_type=REELS&video_url={{video_url}}&caption=Hello World!&share_to_feed=false&access_token={{page_access_token}}
-  
-      https://graph.facebook.com/v19.0/{{ig_user_id}}/media_publish?creation_id={{ig_container_id}}&access_token={{page_access_token}}
-  
-   */
   private async uploadToFacebook(video: Video, token: string) {
     const api = new Axios({
       baseURL: 'https://graph.facebook.com',
