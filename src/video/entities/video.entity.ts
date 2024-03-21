@@ -15,13 +15,13 @@ export class Video {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'varchar', length: 80, nullable: true })
+  @Column({ type: 'varchar', length: 192, nullable: true })
   name?: string;
 
-  @Column({ type: 'varchar', length: 80, nullable: true })
+  @Column({ type: 'varchar', length: 192, nullable: true })
   image?: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ type: 'text', nullable: true })
   description?: string;
 
   @Column({ type: 'varchar', length: 512, nullable: true })
