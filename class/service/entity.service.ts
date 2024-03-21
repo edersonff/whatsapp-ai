@@ -66,6 +66,10 @@ export class Service<Entity> {
     await this.repository.delete(criteria);
   }
 
+  async clear() {
+    await this.repository.clear();
+  }
+
   async update(criteria: Criteria, data: QueryDeepPartialEntity<Entity>) {
     criteria = this.whereCriteria(criteria);
 
