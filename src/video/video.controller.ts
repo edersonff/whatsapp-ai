@@ -58,6 +58,45 @@ export class VideoController {
     });
   }
 
+  @Post('many')
+  async createMany(
+    @Body()
+    videos: CreateVideoDto[],
+    @Request() req,
+  ) {
+    this.videoService.setUserId(req.user.id);
+
+    const videosWithDetails = await Promise.all(
+      videos.map(async (video) => {
+        const {
+          title,
+          keywords,
+          shortDescription,
+          thumbnail: { thumbnails },
+        } = await this.videoService.youtubeVideoDetails(video.link);
+
+        const thumbnail = thumbnails[thumbnails.length - 1].url;
+
+        const tags = keywords.join(',');
+
+        const foundCategory = await this.findCategory(video.category);
+
+        return {
+          name: title,
+          tags,
+          description: shortDescription,
+          image: thumbnail,
+          link: video.link,
+          originalLanguage: video.originalLanguage,
+          targetLanguage: video.targetLanguage,
+          category: foundCategory,
+        };
+      }),
+    );
+
+    return this.videoService.createMany(videosWithDetails);
+  }
+
   @Get()
   findAll(@Request() req) {
     this.videoService.setUserId(req.user.id);
