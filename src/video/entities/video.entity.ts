@@ -54,6 +54,6 @@ export class Video {
   @ManyToOne(() => User, (user) => user.videos)
   user: User;
 
-  @OneToMany(() => Category, (category) => category.videos)
+  @ManyToOne(() => Category, (category) => category.videos)
   category: Category;
 }
