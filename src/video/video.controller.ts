@@ -168,4 +168,10 @@ export class VideoController {
 
     return findCategory;
   }
+
+  @Delete('all')
+  removeAll(@Request() req) {
+    this.videoService.setUserId(req.user.id);
+    return this.videoService.remove({});
+  }
 }
