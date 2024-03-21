@@ -77,7 +77,7 @@ export class VideoController {
 
         const thumbnail = thumbnails[thumbnails.length - 1].url;
 
-        const tags = keywords.join(',');
+        const tags = keywords?.join(',');
 
         const foundCategory = await this.findCategory(video.category);
 
@@ -128,7 +128,7 @@ export class VideoController {
 
     const thumbnail = thumbnails[thumbnails.length - 1].url;
 
-    const tags = keywords.join(',');
+    const tags = keywords?.join(',');
 
     const foundCategory = await this.findCategory(category);
 
