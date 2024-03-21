@@ -45,9 +45,6 @@ export class Video {
   })
   targetLanguage: Lang;
 
-  @Column({ type: 'enum', enum: ['youtube', 'tiktok', 'file'] })
-  type: 'youtube' | 'tiktok' | 'file';
-
   @Column({ type: 'enum', enum: ['draft', 'error', 'ready', 'published'] })
   status: 'draft' | 'error' | 'ready' | 'published';
 
