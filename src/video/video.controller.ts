@@ -172,6 +172,6 @@ export class VideoController {
   @Delete()
   removeAll(@Request() req) {
     this.videoService.setUserId(req.user.id);
-    return this.videoService.clear();
+    return this.videoService.remove({});
   }
 }
