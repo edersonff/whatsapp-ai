@@ -66,6 +66,8 @@ export class VideoController {
   ) {
     this.videoService.setUserId(req.user.id);
 
+    const categories = await this.categoryService.findAll();
+
     const videosWithDetails = await Promise.all(
       videos.map(async (video) => {
         const {
@@ -79,7 +81,9 @@ export class VideoController {
 
         const tags = keywords?.join(',');
 
-        const foundCategory = await this.findCategory(video.category);
+        const foundCategory = categories.find(
+          (category) => category.name === video.category,
+        );
 
         return {
           name: title,
@@ -89,7 +93,9 @@ export class VideoController {
           link: video.link,
           originalLanguage: video.originalLanguage,
           targetLanguage: video.targetLanguage,
-          category: foundCategory,
+          category: {
+            id: foundCategory.id,
+          },
         };
       }),
     );
