@@ -2,23 +2,17 @@ import { Lang, lang } from 'types/language/enum';
 import { Category } from 'src/category/entities/category.entity';
 
 import { User } from 'src/users/entities/user.entity';
-import {
-  Column,
-  Entity,
-  ManyToOne,
-  OneToMany,
-  PrimaryGeneratedColumn,
-} from 'typeorm';
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
 export class Video {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'varchar', length: 192, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   name?: string;
 
-  @Column({ type: 'varchar', length: 192, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   image?: string;
 
   @Column({ type: 'text', nullable: true })
@@ -48,7 +42,7 @@ export class Video {
   @Column({ type: 'enum', enum: ['draft', 'error', 'ready', 'published'] })
   status: 'draft' | 'error' | 'ready' | 'published';
 
-  @Column({ type: 'varchar', length: 72, nullable: true })
+  @Column({ type: 'varchar', length: 96, nullable: true })
   error?: string;
 
   @ManyToOne(() => User, (user) => user.videos)

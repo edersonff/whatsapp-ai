@@ -32,13 +32,13 @@ export class Social {
   @Column({ type: 'enum', enum: ['credentials', 'token'] })
   authType: 'credentials' | 'token';
 
-  @Column({ type: 'varchar', length: 80, nullable: true })
+  @Column({ type: 'varchar', length: 96, nullable: true })
   username?: string;
 
-  @Column({ type: 'varchar', length: 80, nullable: true })
+  @Column({ type: 'varchar', length: 96, nullable: true })
   password?: string;
 
-  @Column({ type: 'varchar', length: 80, nullable: true })
+  @Column({ type: 'varchar', length: 144, nullable: true })
   token?: string;
 
   @ManyToOne(() => User, (user) => user.videos)

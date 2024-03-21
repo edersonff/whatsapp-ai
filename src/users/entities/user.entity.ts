@@ -9,14 +9,14 @@ export class User {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'varchar', length: 48 })
+  @Column({ type: 'varchar', length: 96 })
   username: string;
 
-  @Column({ type: 'varchar', length: 64 })
+  @Column({ type: 'varchar', length: 96 })
   email: string;
 
   @Exclude()
-  @Column({ type: 'varchar', length: 72 })
+  @Column({ type: 'varchar', length: 144 })
   password: string;
 
   @OneToMany(() => Video, (video) => video.user)
