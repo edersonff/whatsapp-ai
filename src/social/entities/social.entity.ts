@@ -38,7 +38,7 @@ export class Social {
   @Column({ type: 'varchar', length: 96, nullable: true })
   password?: string;
 
-  @Column({ type: 'varchar', length: 144, nullable: true })
+  @Column({ type: 'varchar', length: 364, nullable: true })
   token?: string;
 
   @ManyToOne(() => User, (user) => user.videos)
