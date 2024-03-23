@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Axios } from 'axios';
+import axios, { Axios } from 'axios';
 import { Lang } from 'types/language/enum';
 import { Category } from 'src/category/entities/category.entity';
 import { UsersService } from 'src/users/users.service';
@@ -12,11 +12,19 @@ import {
   countries,
   starWars,
 } from 'unique-names-generator';
-import { upload as uploadToYoutube } from 'youtube-videos-uploader';
+import {
+  upload as uploadToYoutube,
+  comment as commentYoutube,
+} from 'youtube-videos-uploader';
+import { Create } from 'tmpmail';
+import fs, { createWriteStream, existsSync } from 'fs';
+import { join } from 'path';
+import { mkdir } from 'fs/promises';
+import { ProductService } from 'src/product/product.service';
+import { Product } from 'src/product/entities/product.entity';
+import { Cron } from '@nestjs/schedule';
 
-const TempMail = require('node-temp-mail');
-
-const axios = new Axios({
+const apiSignout = new Axios({
   baseURL: 'https://app.trydub.com',
   headers: {
     'Content-Type': 'multipart/form-data',
@@ -36,6 +44,28 @@ const axios = new Axios({
     'Sec-Fetch-Dest': 'empty',
     'Sec-Fetch-Mode': 'cors',
     'Sec-Fetch-Site': 'same-origin',
+    'User-Agent':
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+  },
+});
+
+const apiSignin = new Axios({
+  baseURL: 'https://app.trydub.com',
+  headers: {
+    accept: 'application/json, text/plain, */*',
+    'accept-language': 'en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7',
+    'cache-control': 'no-cache',
+    'content-type': 'application/json',
+    pragma: 'no-cache',
+    'sec-ch-ua':
+      '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'sec-fetch-dest': 'empty',
+    'sec-fetch-mode': 'cors',
+    'sec-fetch-site': 'same-origin',
+    Referer: 'https://app.trydub.com/dubbing',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
     'User-Agent':
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
   },
@@ -65,7 +95,7 @@ class Trydub {
   password: string = '';
   cookie: string = '';
 
-  tempMail: typeof TempMail;
+  tempMail: Create;
 
   constructor() {
     this.getUniqueName();
@@ -73,11 +103,14 @@ class Trydub {
   }
 
   getUniqueName = () => {
-    this.name = uniqueNamesGenerator({
-      dictionaries: [adjectives, names, countries, starWars],
-      length: 2,
-      separator: '-',
-    });
+    this.name =
+      uniqueNamesGenerator({
+        dictionaries: [adjectives, names, countries, starWars],
+        length: 3,
+        separator: '-',
+      }) +
+      '-' +
+      Math.random().toString(36).substring(7);
   };
 
   getPassword = () => {
@@ -85,13 +118,17 @@ class Trydub {
   };
 
   getTempMail = async () => {
-    const tempMail = new TempMail(this.name);
+    const client = await Create();
 
-    const { address: email } = tempMail.getAddress();
+    const email: string = await new Promise((resolve) => {
+      client.on('ready', (email) => {
+        resolve(email);
+      });
+    });
 
     this.email = email;
 
-    this.tempMail = tempMail;
+    this.tempMail = client;
   };
 
   register = async () => {
@@ -101,13 +138,16 @@ class Trydub {
     formData.append('1_password', this.password);
     formData.append('0', '["$K1"]');
 
-    const registerPost = axios.post('/register', formData, {
+    const registerPost = apiSignout.post('/register', formData, {
       headers: {
         'Next-Action': 'f848affe288a368678657e5ceee8cca4eaa9d869',
       },
     });
 
     await registerPost;
+
+    await wait(1000);
+
     await registerPost;
   };
 
@@ -118,13 +158,13 @@ class Trydub {
     formData.append('1_password', this.password);
     formData.append('0', '["$K1"]');
 
-    const data = await axios.post('/login', formData, {
+    const data = await apiSignout.post('/login', formData, {
       headers: {
         'Next-Action': 'c49e38ffaefa112e8b778a9d395d15345e7dc95b',
       },
     });
 
-    const setCookie = data.headers['set-cookie'];
+    const setCookie = data.headers['set-cookie'][0];
 
     if (!setCookie || typeof setCookie !== 'string') {
       throw new Error('Cookie not found');
@@ -134,64 +174,70 @@ class Trydub {
   };
 
   waitForEmail = async () => {
-    let email = await this.tempMail.waitForEmail();
+    let emails = await this.tempMail.fetch();
 
-    while (!email) {
-      await wait(3000);
-      email = await this.tempMail.waitForEmail();
+    while (emails.length === 0) {
+      await wait(1000);
+      emails = await this.tempMail.fetch();
     }
+
+    const email = await this.tempMail.findMessage(emails[0]._id);
 
     return email;
   };
 
   confirmEmail = async (html: string) => {
-    const confirmUrl = html
-      .split('https://us-east-1.resend-clicks.com/CL0/')[1]
-      .split('"')[0];
+    const confirmUrl =
+      'https://app.trydub.com/auth/confirm?' +
+      html.split('https://app.trydub.com/auth/confirm?')[1].split(']')[0];
 
-    await axios.get(confirmUrl, {
-      headers: {
-        Cookie: this.cookie,
-      },
-    });
+    await apiSignout.get(decodeURIComponent(confirmUrl));
   };
 
   postProject = async (data: {
     name?: string;
     sourceObject?: any;
     sourceUrl?: string;
-    sourceLanguage?: string;
-    targetLanguage?: string;
+    sourceLanguage?: Lang;
+    targetLanguage?: Lang;
     mediaDuration?: number;
     includeBackground?: boolean;
-    speakerNumber?: number;
+    speakerNumber?: string;
   }) => {
-    await axios.post('/api/project', data, {
+    await apiSignin.post('/api/projects', JSON.stringify(data), {
       headers: {
-        Accept: 'application/json, text/plain, */*',
+        Cookie: this.cookie,
       },
     });
   };
 
   getProject = async () => {
-    const { data } = await axios.get('/project', {
+    const { data } = await axios.get('/projects', {
       headers: {
         Cookie: this.cookie,
       },
     });
 
-    const decodedData = data.split('{"data":')[1].split('}]')[0];
+    const hasData = data.includes(`{\"data\":`);
 
-    return JSON.parse(`"${decodedData}}]`) as any[];
+    if (!hasData) {
+      return [];
+    }
+
+    const decodedData = data.split(`{\"data\":`)[1].split('}]')[0];
+
+    const arr = JSON.parse(`${decodedData}}]`);
+
+    return arr;
   };
 
   createUrlProject = async (projectId: string) => {
-    const { data } = await axios.post(
+    const { data } = await apiSignin.post(
       '/api/createUrl',
-      {
-        key: projectId, //"cltwgrb8b000112c2zl30fwqk_pt.mp4"
+      JSON.stringify({
+        key: projectId,
         method: 'get',
-      },
+      }),
       {
         headers: {
           Cookie: this.cookie,
@@ -206,13 +252,15 @@ class Trydub {
 @Injectable()
 export class TasksService {
   private readonly logger = new Logger(TasksService.name);
+  private product: Product | null = null;
 
   constructor(
     private readonly videoService: VideoService,
     private readonly userService: UsersService,
+    private readonly productService: ProductService,
   ) {}
 
-  // @Cron('*/10 * * * *')
+  @Cron('*/10 * * * *')
   async publishVideosCron() {
     const users = await this.userService.findAll({
       where: {
@@ -221,7 +269,9 @@ export class TasksService {
         },
       },
       relations: {
-        videos: true,
+        videos: {
+          category: true,
+        },
         socials: true,
       },
     });
@@ -244,19 +294,29 @@ export class TasksService {
         for (const social of socials) {
           const { token, type, username, password } = social;
 
+          this.product = await this.productService.findOne({
+            category: {
+              id: video.category.id,
+            },
+          });
+
           switch (type) {
             case 'youtube':
               await this.uploadToYoutube(video, { username, password });
               break;
             case 'meta':
-              await this.uploadToFacebook(video, token);
+              // await this.uploadToFacebook(
+              //   video,
+              //   username,
+              //   'EAAFZCZBnD1SuUBO5ZAKCOaeoFS7mbmZAo6O7rqABjOCtJtLxqOETngyVP02zl98Yjt8Kwz3a8aTYw6vHZAEdoGRpMniwIjrHRdz4IYQZAjQJq1a89ztgqeUOa4aKM3KJHabsxKybUCnELk3A3krkqTy6KPgv7Qp3K6EbmuDZARsZCawZC2e2zJVXwESPHIGdzHJEKoJe8gLcH90OZAAfoPMelkQeIZD',
+              // );
               break;
             case 'instagram':
-              await this.uploadToInstagram(video, token);
+              await this.uploadToInstagram(video, '17841465895600130', token);
               break;
             case 'tiktok':
-              await this.uploadToTiktok(video, token);
-              break;
+            // await this.uploadToTiktok(video, token);
+            // break;
             case 'pinterest':
               // await this.uploadToPinterest(video, token);
               break;
@@ -281,10 +341,6 @@ export class TasksService {
     credentials: { username: string; password: string },
   ) {
     const { username, password } = credentials;
-
-    const options = {
-      headless: false,
-    };
 
     function coverterLanguage(lang: Lang) {
       switch (lang) {
@@ -351,28 +407,93 @@ export class TasksService {
       }
     }
 
+    const description = video.description === '' ? ' ' : video.description;
+
+    const tmpFolder = join(__dirname, '..', '..', 'tmp');
+    const isTmp = existsSync(tmpFolder);
+
+    if (!isTmp) {
+      await mkdir(tmpFolder);
+    }
+
+    const file = await this.downloadFile(video.output, '.mp4');
+    const thumb = await this.downloadFile(video.image, '.jpg');
+
     const video1 = {
-      path: video.link,
+      path: file,
       title: video.name,
-      thumbnail: video.image,
-      tags: video.tags.split(','),
-      playlist: video.category.name,
+      thumbnail: thumb,
+      tags: video?.tags?.split(','),
+      playlist: video?.category?.label,
       skipProcessingWait: true,
       isAgeRestriction: false,
       isNotForKid: false,
       publishType: 'PUBLIC' as const,
-      language: coverterLanguage(video.originalLanguage),
-      description: video.description,
+      language: coverterLanguage(video.targetLanguage),
+      description: description,
+      isChannelMonetized: false,
     };
 
-    await uploadToYoutube(
+    const [videoUploaded] = await uploadToYoutube(
       { email: username, pass: password },
       [video1],
-      options,
     );
+
+    this.removeFile(file);
+    this.removeFile(thumb);
+
+    this.logger.debug('Video uploaded to Youtube', new Date());
+
+    if (this.product) {
+      const comment1 = {
+        link: videoUploaded,
+        comment: this.getProductMessage(this.product),
+        pin: true,
+      };
+
+      await commentYoutube({ email: username, pass: password }, [comment1]);
+    }
   }
 
-  private async uploadToFacebook(video: Video, token: string) {
+  private async downloadFile(url: string, format: string) {
+    const folder = 'tmp';
+    const filename =
+      new Date().toISOString().replace(/:/g, '-').replace(/\./g, '-') + format;
+
+    const fileRes = await axios.get(url, {
+      responseType: 'stream',
+    });
+
+    const filePath = join(__dirname, '..', '..', folder, filename);
+
+    const writer = createWriteStream(filePath);
+
+    fileRes.data.pipe(writer);
+
+    return new Promise<string>((resolve, reject) => {
+      writer.on('finish', () => {
+        writer.close();
+      });
+
+      writer.on('close', () => {
+        resolve(filePath);
+      });
+
+      writer.on('error', (err) => {
+        reject(err);
+      });
+    });
+  }
+
+  private removeFile(filePath: string) {
+    fs.unlinkSync(filePath);
+  }
+
+  private async uploadToFacebook(
+    video: Video,
+    username: string,
+    token: string,
+  ) {
     const api = new Axios({
       baseURL: 'https://graph.facebook.com',
       headers: {
@@ -381,51 +502,69 @@ export class TasksService {
       },
     });
 
-    const data = {
-      upload_phase: 'start',
-      access_token: token,
-    };
+    const { data: reelsData } = await api.post(
+      '/v19.0/' + username + '/video_reels',
+      JSON.stringify({
+        upload_phase: 'start',
+        access_token: token,
+      }),
+    );
 
-    const {
-      data: { video_id, upload_url },
-    } = await api.post('/v19.0/Your_page_id/video_reels', data);
+    const { upload_url, video_id } = JSON.parse(reelsData);
 
-    await api.post(upload_url, {
+    await api.post(upload_url, null, {
       headers: {
+        file_url: video.output,
         Authorization: `OAuth ${token}`,
-        file_url: video.link,
       },
     });
 
-    let {
-      data: { status },
-    } = await api.get(`/v19.0/${video_id}`, {
+    const { data: statusData } = await api.get(`/v19.0/${video_id}`, {
       params: {
         fields: 'status',
         access_token: token,
       },
     });
 
-    while (status.video_status === 'processing') {
-      await wait(3000);
-      status = await api.get(`/v19.0/${video_id}`, {
+    let { status } = JSON.parse(statusData);
+
+    let maxAttempts = 12;
+
+    while (status.video_status === 'processing' && maxAttempts > 0) {
+      await wait(10000);
+      const { data: statusData } = await api.get(`/v19.0/${video_id}`, {
         params: {
           fields: 'status',
           access_token: token,
         },
       });
+
+      if (status.copyright_check_status.status === 'complete') {
+        maxAttempts--;
+      }
+
+      status = JSON.parse(statusData).status;
     }
 
-    await api.post('/v19.0/page-id/video_reels', {
-      access_token: token,
-      video_id,
-      upload_phase: 'finish',
-      video_state: 'PUBLISHED',
-      description: video.name,
-    });
+    const reels = await api.post(
+      `/v19.0/${video_id}/video_reels`,
+      JSON.stringify({
+        access_token: token,
+        video_id,
+        upload_phase: 'finish',
+        video_state: 'PUBLISHED',
+        description: video.name,
+      }),
+    );
+
+    console.log(reels);
   }
 
-  private async uploadToInstagram(video: Video, token: string) {
+  private async uploadToInstagram(
+    video: Video,
+    username: string,
+    token: string,
+  ) {
     const api = new Axios({
       baseURL: 'https://graph.facebook.com',
       headers: {
@@ -434,26 +573,51 @@ export class TasksService {
       },
     });
 
-    const {
-      data: { id: ig_user_id },
-    } = await api.get('/v19.0/me', {
+    const { data: mediaData } = await api.post(
+      `/v19.0/${username}/media`,
+      JSON.stringify({
+        media_type: 'REELS',
+        video_url: video.output,
+        caption: video.name,
+        share_to_feed: false,
+        access_token: token,
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+      },
+    );
+
+    const { id: ig_container_id } = JSON.parse(mediaData);
+
+    const { data: dataStatus } = await api.get(ig_container_id, {
       params: {
-        fields: 'id',
+        fields: 'status_code',
         access_token: token,
       },
     });
 
-    const {
-      data: { id: ig_container_id },
-    } = await api.post(
-      `/v19.0/${ig_user_id}/media`,
-      {
-        media_type: 'REELS',
-        video_url: video.link,
-        caption: video.name,
-        share_to_feed: false,
+    let { status_code } = JSON.parse(dataStatus);
+
+    while (status_code !== 'FINISHED') {
+      await wait(10000);
+      const { data: dataStatus } = await api.get(ig_container_id, {
+        params: {
+          fields: 'status_code',
+          access_token: token,
+        },
+      });
+
+      status_code = JSON.parse(dataStatus).status_code;
+    }
+
+    await api.post(
+      `/v19.0/${username}/media_publish`,
+      JSON.stringify({
+        creation_id: ig_container_id,
         access_token: token,
-      },
+      }),
       {
         headers: {
           'Content-Type': 'application/json; charset=UTF-8',
@@ -461,18 +625,21 @@ export class TasksService {
       },
     );
 
-    await api.post(
-      `/v19.0/${ig_user_id}/media_publish`,
-      {
-        creation_id: ig_container_id,
-        access_token: token,
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json; charset=UTF-8',
+    this.logger.debug('Video uploaded to Instagram', new Date());
+
+    if (this.product) {
+      await api.post(
+        `/${ig_container_id}/comments`,
+        JSON.stringify({
+          message: this.getProductMessage(this.product),
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/json; charset=UTF-8',
+          },
         },
-      },
-    );
+      );
+    }
   }
 
   private async uploadToTiktok(video: Video, token: string) {
@@ -502,13 +669,13 @@ export class TasksService {
     await api.post('/v2/post/publish/video/init/', data);
   }
 
-  // private async uploadToPinterest(video: Video, token: string) {
-  //   const formData = new FormData();
+  private async uploadToPinterest(video: Video, token: string) {
+    const formData = new FormData();
 
-  //   formData.append('media_type', 'video');
-  // }
+    formData.append('media_type', 'video');
+  }
 
-  // @Cron('*/30 * * * *')
+  @Cron('*/15 * * * *')
   async renderVideosCron() {
     const videos = await this.videoService.findAll({
       take: 5,
@@ -531,9 +698,18 @@ export class TasksService {
 
       const email = await trydub.waitForEmail();
 
-      const html = email[0].html;
+      const html = email.body.text;
 
       await trydub.confirmEmail(html);
+
+      this.logger.debug(
+        'Account created',
+        trydub.email,
+        trydub.password,
+        new Date(),
+      );
+
+      await wait(1000);
 
       await trydub.login();
 
@@ -541,13 +717,13 @@ export class TasksService {
         const { link, name, originalLanguage, targetLanguage } = video;
 
         await trydub.postProject({
-          name: name || 'Untitled' + Math.random(),
+          name: (name || 'Untitled') + ' ' + new Date().toISOString(),
           sourceUrl: link,
           sourceLanguage: originalLanguage,
           targetLanguage: targetLanguage,
           mediaDuration: 0,
           includeBackground: true,
-          speakerNumber: 0,
+          speakerNumber: '0',
         });
       }
 
@@ -561,11 +737,12 @@ export class TasksService {
           (project) => project.status === 'completed',
         );
       }
-
       for (const project of projects) {
-        const url = await trydub.createUrlProject(project.id);
+        const url = await trydub.createUrlProject(project.finalObject);
 
-        await this.videoService.update(project.id, {
+        const video = videos.find((video) => video.link === project.sourceUrl);
+
+        await this.videoService.update(video.id, {
           output: url,
           status: 'ready',
         });
@@ -578,5 +755,9 @@ export class TasksService {
     } catch (e) {
       this.logger.error(e, new Date());
     }
+  }
+
+  private getProductMessage(product: Product) {
+    return `${product.comment}: ${product.link}`;
   }
 }
