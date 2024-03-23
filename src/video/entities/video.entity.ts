@@ -24,7 +24,7 @@ export class Video {
   @Column({ type: 'varchar', length: 72 })
   link: string;
 
-  @Column({ type: 'varchar', length: 96, nullable: true })
+  @Column({ type: 'varchar', length: 600, nullable: true })
   output?: string;
 
   @Column({

@@ -4,7 +4,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Video } from './entities/video.entity';
 import { Axios } from 'axios';
-import { VideoDetails } from 'types/youtube/details';
+import { translate } from 'bing-translate-api';
+import { Lang } from 'types/language/enum';
 
 @Injectable()
 export class VideoService extends Service<Video> {
@@ -15,7 +16,7 @@ export class VideoService extends Service<Video> {
     super(repository);
   }
 
-  async youtubeVideoDetails(link: string): Promise<VideoDetails> {
+  async youtubeVideoDetails(link: string, from: Lang, to: Lang) {
     const axios = new Axios({
       headers: {
         'Content-Type': 'application/json',
@@ -30,6 +31,28 @@ export class VideoService extends Service<Video> {
 
     const details = JSON.parse(videoDetails);
 
+    details.title = await this.translateText(details.title, from, to);
+    details.shortDescription = await this.translateText(
+      details.shortDescription,
+      from,
+      to,
+    );
+    details.keywords = await this.translateText(
+      details.keywords.join(','),
+      from,
+      to,
+    );
+
     return details;
   }
+
+  private translateText = async (text: string, from: Lang, to: Lang) => {
+    const hashtagsTexts = text.match(/#[a-zA-Z0-9]+/g) || [];
+
+    const textWithoutHashtags = text.replace(/#[a-zA-Z0-9]+/g, '');
+
+    const translatedText = await translate(textWithoutHashtags, from, to);
+
+    return translatedText + ' ' + hashtagsTexts.join(' ');
+  };
 }

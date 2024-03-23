@@ -38,7 +38,11 @@ export class VideoController {
       keywords,
       shortDescription,
       thumbnail: { thumbnails },
-    } = await this.videoService.youtubeVideoDetails(link);
+    } = await this.videoService.youtubeVideoDetails(
+      link,
+      originalLanguage,
+      targetLanguage,
+    );
 
     const thumbnail = thumbnails[thumbnails.length - 1].url;
 
@@ -69,35 +73,46 @@ export class VideoController {
     const categories = await this.categoryService.findAll();
 
     const videosWithDetails = await Promise.all(
-      videos.map(async (video) => {
-        const {
-          title,
-          keywords,
-          shortDescription,
-          thumbnail: { thumbnails },
-        } = await this.videoService.youtubeVideoDetails(video.link);
+      videos.map(
+        async ({
+          category: categoryName,
+          link,
+          originalLanguage,
+          targetLanguage,
+        }) => {
+          const {
+            title,
+            keywords,
+            shortDescription,
+            thumbnail: { thumbnails },
+          } = await this.videoService.youtubeVideoDetails(
+            link,
+            originalLanguage,
+            targetLanguage,
+          );
 
-        const thumbnail = thumbnails[thumbnails.length - 1].url;
+          const thumbnail = thumbnails[thumbnails.length - 1].url;
 
-        const tags = keywords?.join(',');
+          const tags = keywords?.join(',');
 
-        const foundCategory = categories.find(
-          (category) => category.name === video.category,
-        );
+          const foundCategory = categories.find(
+            (category) => category.name === categoryName,
+          );
 
-        return {
-          name: title,
-          tags,
-          description: shortDescription,
-          image: thumbnail,
-          link: video.link,
-          originalLanguage: video.originalLanguage,
-          targetLanguage: video.targetLanguage,
-          category: {
-            id: foundCategory.id,
-          },
-        };
-      }),
+          return {
+            name: title,
+            tags,
+            description: shortDescription,
+            image: thumbnail,
+            link: link,
+            originalLanguage: originalLanguage,
+            targetLanguage: targetLanguage,
+            category: {
+              id: foundCategory.id,
+            },
+          };
+        },
+      ),
     );
 
     return this.videoService.createMany(videosWithDetails);
@@ -130,7 +145,11 @@ export class VideoController {
       keywords,
       shortDescription,
       thumbnail: { thumbnails },
-    } = await this.videoService.youtubeVideoDetails(link);
+    } = await this.videoService.youtubeVideoDetails(
+      link,
+      originalLanguage,
+      targetLanguage,
+    );
 
     const thumbnail = thumbnails[thumbnails.length - 1].url;
 
