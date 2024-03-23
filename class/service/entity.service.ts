@@ -9,6 +9,7 @@ import {
   SaveOptions,
 } from 'typeorm';
 import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
+import { UpsertOptions } from 'typeorm/repository/UpsertOptions';
 
 type Criteria =
   | string
@@ -60,6 +61,15 @@ export class Service<Entity> {
     await this.repository.save(data, options);
   }
 
+  async upsert(
+    data: QueryDeepPartialEntity<Entity> | QueryDeepPartialEntity<Entity>[],
+    options?: string[] | UpsertOptions<Entity>,
+  ) {
+    data = this.whereUpsert(data);
+
+    await this.repository.upsert(data, options);
+  }
+
   async remove(criteria: Criteria) {
     criteria = this.whereCriteria(criteria);
 
@@ -94,13 +104,6 @@ export class Service<Entity> {
     return options;
   }
 
-  private saveData(data: DeepPartial<Entity>) {
-    if (this.userId) {
-      data = { ...data, user: { id: this.userId } };
-    }
-    return data;
-  }
-
   private whereCriteria(criteria: Criteria) {
     if (this.userId) {
       if (typeof criteria === 'object') {
@@ -110,5 +113,25 @@ export class Service<Entity> {
       }
     }
     return criteria;
+  }
+
+  private whereUpsert(
+    data: QueryDeepPartialEntity<Entity> | QueryDeepPartialEntity<Entity>[],
+  ) {
+    if (this.userId) {
+      if (Array.isArray(data)) {
+        data = data.map((d) => ({ ...d, user: { id: this.userId } }));
+      } else {
+        data = { ...data, user: { id: this.userId } };
+      }
+    }
+    return data;
+  }
+
+  private saveData(data: DeepPartial<Entity>) {
+    if (this.userId) {
+      data = { ...data, user: { id: this.userId } };
+    }
+    return data;
   }
 }
