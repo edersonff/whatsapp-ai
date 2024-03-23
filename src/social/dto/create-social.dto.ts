@@ -26,16 +26,16 @@ export class CreateSocialDto {
 
   @IsString()
   @IsOptional()
-  @MaxLength(80)
+  @MaxLength(96)
   username?: string;
 
   @IsString()
   @IsOptional()
-  @MaxLength(80)
+  @MaxLength(96)
   password?: string;
 
   @IsString()
   @IsOptional()
-  @MaxLength(80)
+  @MaxLength(364)
   token?: string;
 }
