@@ -1,5 +1,6 @@
 import { config } from 'dotenv';
 import { Category } from 'src/category/entities/category.entity';
+import { Post } from 'src/post/entities/post.entity';
 import { Product } from 'src/product/entities/product.entity';
 import { Social } from 'src/social/entities/social.entity';
 import { User } from 'src/users/entities/user.entity';
@@ -14,7 +15,7 @@ export const dataSourceOptions: DataSourceOptions = {
   port: +process.env.DB_PORT || 3306,
   username: process.env.DB_USER || 'root',
   password: process.env.DB_PASS || 'root',
-  entities: [User, Video, Category, Social, Product],
+  entities: [User, Video, Category, Social, Product, Post],
   database: process.env.DB_NAME || 'sociable-ai',
   synchronize: process.env.DB_SYNC === 'true',
   logging: true,

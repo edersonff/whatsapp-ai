@@ -13,6 +13,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { TasksModule } from './tasks/tasks.module';
 import { dataSourceOptions } from './db/data-source';
 import { SeedModule } from './seed/seed.module';
+import { PostModule } from './post/post.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { SeedModule } from './seed/seed.module';
     ProductModule,
     TasksModule,
     SeedModule,
+    PostModule,
   ],
   controllers: [AppController],
   providers: [AppService],
