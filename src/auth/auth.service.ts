@@ -44,7 +44,7 @@ export class AuthService {
     }
 
     const payload = {
-      sub: user.id,
+      id: user.id,
       username: user.username,
     };
 
@@ -67,7 +67,7 @@ export class AuthService {
     await this.usersService.create(signInDto);
 
     const payload = {
-      sub: user.id,
+      id: user.id,
       username: user.username,
     };
 
