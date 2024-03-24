@@ -63,6 +63,8 @@ export class VideoService extends Service<Video> {
 
     const translatedText = await translate(textWithoutHashtags, from, to);
 
-    return translatedText.translation + ' ' + hashtagsTexts?.join(' ');
+    const translation = translatedText?.translation || textWithoutHashtags;
+
+    return translation + ' ' + hashtagsTexts?.join(' ');
   };
 }
