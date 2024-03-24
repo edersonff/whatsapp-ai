@@ -56,7 +56,6 @@ jobs:
         uses: azure/webapps-deploy@v2
         with:
           app-name: 'Sociable-API'
-          startup-command: npm install -g @nestjs/cli
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_96280A400DE9473DA22F3DB0ABEB7531 }}
           package: .
