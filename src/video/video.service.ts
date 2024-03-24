@@ -43,8 +43,6 @@ export class VideoService extends Service<Video> {
       to,
     );
 
-    console.log(details);
-
     return details;
   }
 
@@ -61,7 +59,9 @@ export class VideoService extends Service<Video> {
 
     const textWithoutHashtags = text?.replace(/#[a-zA-Z0-9]+/g, '');
 
-    const translatedText = await translate(textWithoutHashtags, from, to);
+    const textSubstring = String(textWithoutHashtags).substring(0, 1000);
+
+    const translatedText = await translate(textSubstring, from, to);
 
     const translation = translatedText?.translation || textWithoutHashtags;
 
