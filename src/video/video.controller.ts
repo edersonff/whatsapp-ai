@@ -120,6 +120,9 @@ export class VideoController {
 
   @Get()
   findAll(@Request() req) {
+    console.log({
+      user: req.user,
+    });
     this.videoService.setUserId(req.user.id);
     return this.videoService.findAll();
   }
