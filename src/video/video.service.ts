@@ -38,21 +38,31 @@ export class VideoService extends Service<Video> {
       to,
     );
     details.keywords = await this.translateText(
-      details.keywords.join(','),
+      details?.keywords?.join(','),
       from,
       to,
     );
 
+    console.log(details);
+
     return details;
   }
 
-  private translateText = async (text: string, from: Lang, to: Lang) => {
-    const hashtagsTexts = text.match(/#[a-zA-Z0-9]+/g) || [];
+  private translateText = async (
+    text: string | undefined,
+    from: Lang,
+    to: Lang,
+  ) => {
+    if (!text || text === '') {
+      return '';
+    }
 
-    const textWithoutHashtags = text.replace(/#[a-zA-Z0-9]+/g, '');
+    const hashtagsTexts = text?.match(/#[a-zA-Z0-9]+/g) || [];
+
+    const textWithoutHashtags = text?.replace(/#[a-zA-Z0-9]+/g, '');
 
     const translatedText = await translate(textWithoutHashtags, from, to);
 
-    return translatedText + ' ' + hashtagsTexts.join(' ');
+    return translatedText.translation + ' ' + hashtagsTexts?.join(' ');
   };
 }

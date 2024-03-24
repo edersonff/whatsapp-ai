@@ -2,7 +2,16 @@ import { Lang, lang } from 'types/language/enum';
 import { Category } from 'src/category/entities/category.entity';
 
 import { User } from 'src/users/entities/user.entity';
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { Post } from 'src/post/entities/post.entity';
 
 @Entity()
 export class Video {
@@ -54,4 +63,13 @@ export class Video {
 
   @ManyToOne(() => Category, (category) => category.videos)
   category: Category;
+
+  @OneToMany(() => Post, (post) => post.video)
+  posts: Post[];
+
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
 }

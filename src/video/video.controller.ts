@@ -46,7 +46,7 @@ export class VideoController {
 
     const thumbnail = thumbnails[thumbnails.length - 1].url;
 
-    const tags = keywords?.join(',') || '';
+    const tags = keywords || '';
 
     const foundCategory = await this.findCategory(category);
 
