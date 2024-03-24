@@ -93,7 +93,7 @@ export class VideoController {
 
           const thumbnail = thumbnails[thumbnails.length - 1].url;
 
-          const tags = keywords?.join(',');
+          const tags = (keywords || []).join(',');
 
           const foundCategory = categories.find(
             (category) => category.name === categoryName,
