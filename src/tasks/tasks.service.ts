@@ -17,12 +17,16 @@ import {
   comment as commentYoutube,
 } from 'youtube-videos-uploader';
 import { Create } from 'tmpmail';
-import fs, { createWriteStream, existsSync } from 'fs';
+import { createWriteStream, existsSync } from 'fs';
 import { join } from 'path';
-import { mkdir } from 'fs/promises';
+import { mkdir, unlink } from 'fs/promises';
 import { ProductService } from 'src/product/product.service';
 import { Product } from 'src/product/entities/product.entity';
 import { Cron } from '@nestjs/schedule';
+import { DateTime } from 'luxon';
+import { LessThan } from 'typeorm';
+import { PostService } from 'src/post/post.service';
+import { CategoryService } from 'src/category/category.service';
 
 const apiSignout = new Axios({
   baseURL: 'https://app.trydub.com',
@@ -212,19 +216,21 @@ class Trydub {
   };
 
   getProject = async () => {
-    const { data } = await axios.get('/projects', {
+    const { data } = await apiSignin.get('/projects', {
       headers: {
         Cookie: this.cookie,
       },
     });
 
-    const hasData = data.includes(`{\"data\":`);
+    const strData = data.replace(/\\\"/g, '"');
+
+    const hasData = strData.includes(`{"data":`);
 
     if (!hasData) {
       return [];
     }
 
-    const decodedData = data.split(`{\"data\":`)[1].split('}]')[0];
+    const decodedData = strData.split(`{"data":`)[1].split('}]')[0];
 
     const arr = JSON.parse(`${decodedData}}]`);
 
@@ -245,20 +251,238 @@ class Trydub {
       },
     );
 
-    return data.url;
+    return JSON.parse(data).url;
   };
 }
 
 @Injectable()
 export class TasksService {
   private readonly logger = new Logger(TasksService.name);
-  private product: Product | null = null;
+  public userId: number;
 
   constructor(
     private readonly videoService: VideoService,
     private readonly userService: UsersService,
     private readonly productService: ProductService,
+    private readonly postService: PostService,
+    private readonly categoryService: CategoryService,
   ) {}
+
+  @Cron('*/15 * * * *')
+  async renderVideosCron() {
+    const videos = await this.videoService.findAll({
+      take: 5,
+      where: {
+        status: 'draft',
+      },
+    });
+
+    if (videos.length === 0) {
+      this.logger.debug('No videos to process', new Date());
+      return;
+    }
+
+    try {
+      const trydub = new Trydub();
+
+      await trydub.getTempMail();
+
+      await trydub.register();
+
+      const email = await trydub.waitForEmail();
+
+      const html = email.body.text;
+
+      await trydub.confirmEmail(html);
+
+      this.logger.debug(
+        'Account created',
+        trydub.email,
+        trydub.password,
+        new Date(),
+      );
+
+      await wait(1000);
+
+      await trydub.login();
+
+      for (const video of videos) {
+        const { link, name, originalLanguage, targetLanguage } = video;
+
+        await trydub.postProject({
+          name: (name || 'Untitled') + ' ' + new Date().toISOString(),
+          sourceUrl: link,
+          sourceLanguage: originalLanguage,
+          targetLanguage: targetLanguage,
+          mediaDuration: 0,
+          includeBackground: true,
+          speakerNumber: '0',
+        });
+
+        this.logger.debug('Project posted', new Date());
+      }
+
+      let projects = (await trydub.getProject()).filter(
+        (project) => project.status === 'completed',
+      );
+
+      while (projects.length < videos.length) {
+        await wait(20000);
+        projects = (await trydub.getProject()).filter(
+          (project) => project.status === 'completed',
+        );
+      }
+
+      for (const project of projects) {
+        const url = await trydub.createUrlProject(project.finalObject);
+
+        const video = videos.find((video) => video.link === project.sourceUrl);
+
+        await this.videoService.update(video.id, {
+          output: url,
+          status: 'ready',
+        });
+
+        this.logger.debug('Video rendered', new Date());
+      }
+
+      this.logger.debug('All videos rendered', new Date());
+    } catch (e) {
+      console.log(e);
+      this.logger.error(e, new Date());
+    }
+  }
+
+  @Cron('*/30 * * * *')
+  async commentVideosCron() {
+    const twoHoursAgo = DateTime.now().minus({ minutes: 30 }).toJSDate();
+
+    const posts = await this.postService.findAll({
+      where: {
+        createdAt: LessThan(twoHoursAgo),
+        status: 'draft',
+      },
+      relations: {
+        user: {
+          socials: true,
+        },
+        video: true,
+      },
+    });
+
+    const categories = await this.categoryService.findAll({
+      relations: {
+        products: true,
+      },
+    });
+
+    if (posts.length === 0) {
+      this.logger.debug('No posts to comment', new Date());
+      return;
+    }
+
+    for (const post of posts) {
+      const { type, link, video, code, user } = post;
+
+      const category = categories.find(
+        (category) => category.id === video.category.id,
+      );
+
+      const product = category.products.find(
+        (product) => product.category.id === category.id,
+      );
+
+      const social = user.socials.find((social) => social.type === type);
+
+      if (!product || !category) {
+        continue;
+      }
+
+      const comment = this.getProductMessage(product);
+      try {
+        switch (type) {
+          case 'youtube':
+            await this.commentToYoutube({ link, comment, social });
+            break;
+          case 'meta':
+            await this.commentToFacebook({ code, comment, social });
+            break;
+          case 'instagram':
+            await this.commentToInstagram({ code, comment, social });
+            break;
+          case 'tiktok':
+            // await this.uploadToTiktok(video, user.socials[0].token);
+            break;
+          case 'pinterest':
+            // await this.uploadToPinterest(video, user.socials[0].token);
+            break;
+        }
+      } catch (e) {
+        await this.postService.update(post.id, {
+          status: 'error',
+        });
+      }
+
+      await this.postService.update(post.id, {
+        status: 'commented',
+      });
+
+      this.logger.debug('Comment posted', new Date());
+    }
+  }
+
+  private async commentToYoutube({ link, comment, social }) {
+    const { username, password } = social;
+
+    await commentYoutube({ email: username, pass: password }, [
+      {
+        link,
+        comment,
+        pin: true,
+      },
+    ]);
+  }
+
+  private async commentToFacebook({ code, comment, social }) {
+    const api = new Axios({
+      baseURL: 'https://graph.facebook.com',
+      headers: {
+        Authorization: `Bearer ${social.token}`,
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+    });
+
+    await api.post(
+      `/${code}/comments`,
+      JSON.stringify({
+        message: comment,
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+      },
+    );
+  }
+
+  private async commentToInstagram({ code, comment, social }) {
+    const api = new Axios({
+      baseURL: 'https://graph.facebook.com',
+      headers: {
+        Authorization: `Bearer ${social.token}`,
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+    });
+
+    await api.post(`/${code}/comments`, null, {
+      headers: {
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      params: {
+        message: comment,
+      },
+    });
+  }
 
   @Cron('*/10 * * * *')
   async publishVideosCron() {
@@ -284,6 +508,8 @@ export class TasksService {
     for (const user of users) {
       const { videos, socials } = user;
 
+      this.userId = user.id;
+
       for (const video of videos) {
         const { output } = video;
 
@@ -291,36 +517,33 @@ export class TasksService {
           continue;
         }
 
-        for (const social of socials) {
-          const { token, type, username, password } = social;
+        try {
+          for (const social of socials) {
+            const { token, type, username, password } = social;
 
-          this.product = await this.productService.findOne({
-            category: {
-              id: video.category.id,
-            },
-          });
-
-          switch (type) {
-            case 'youtube':
-              await this.uploadToYoutube(video, { username, password });
-              break;
-            case 'meta':
-              // await this.uploadToFacebook(
-              //   video,
-              //   username,
-              //   'EAAFZCZBnD1SuUBO5ZAKCOaeoFS7mbmZAo6O7rqABjOCtJtLxqOETngyVP02zl98Yjt8Kwz3a8aTYw6vHZAEdoGRpMniwIjrHRdz4IYQZAjQJq1a89ztgqeUOa4aKM3KJHabsxKybUCnELk3A3krkqTy6KPgv7Qp3K6EbmuDZARsZCawZC2e2zJVXwESPHIGdzHJEKoJe8gLcH90OZAAfoPMelkQeIZD',
-              // );
-              break;
-            case 'instagram':
-              await this.uploadToInstagram(video, '17841465895600130', token);
-              break;
-            case 'tiktok':
-            // await this.uploadToTiktok(video, token);
-            // break;
-            case 'pinterest':
-              // await this.uploadToPinterest(video, token);
-              break;
+            switch (type) {
+              case 'youtube':
+                await this.uploadToYoutube(video, { username, password });
+                break;
+              case 'meta':
+                await this.uploadToFacebook(video, username, token);
+                break;
+              case 'instagram':
+                await this.uploadToInstagram(video, username, token);
+                break;
+              case 'tiktok':
+              // await this.uploadToTiktok(video, token);
+              // break;
+              case 'pinterest':
+                // await this.uploadToPinterest(video, token);
+                break;
+            }
           }
+        } catch (e) {
+          await this.videoService.update(video.id, {
+            status: 'error',
+            error: String(e?.message).substring(0, 96),
+          });
         }
 
         await this.videoService.update(video.id, {
@@ -406,32 +629,25 @@ export class TasksService {
           return 'ukrainian';
       }
     }
+    const description = ' ' + String(video.description || '');
 
-    const description = video.description === '' ? ' ' : video.description;
-
-    const tmpFolder = join(__dirname, '..', '..', 'tmp');
-    const isTmp = existsSync(tmpFolder);
-
-    if (!isTmp) {
-      await mkdir(tmpFolder);
-    }
+    await this.createFolder('tmp');
 
     const file = await this.downloadFile(video.output, '.mp4');
     const thumb = await this.downloadFile(video.image, '.jpg');
 
     const video1 = {
       path: file,
-      title: video.name,
+      title: video.name + ' #shorts',
       thumbnail: thumb,
       tags: video?.tags?.split(','),
-      playlist: video?.category?.label,
-      skipProcessingWait: true,
-      isAgeRestriction: false,
-      isNotForKid: false,
-      publishType: 'PUBLIC' as const,
+      // playlist: video?.category?.label,
       language: coverterLanguage(video.targetLanguage),
+      skipProcessingWait: true,
+      publishType: 'PUBLIC' as const,
       description: description,
       isChannelMonetized: false,
+      isNotForKid: true,
     };
 
     const [videoUploaded] = await uploadToYoutube(
@@ -439,20 +655,21 @@ export class TasksService {
       [video1],
     );
 
-    this.removeFile(file);
-    this.removeFile(thumb);
+    await this.removeFile(file);
+    await this.removeFile(thumb);
 
     this.logger.debug('Video uploaded to Youtube', new Date());
 
-    if (this.product) {
-      const comment1 = {
-        link: videoUploaded,
-        comment: this.getProductMessage(this.product),
-        pin: true,
-      };
-
-      await commentYoutube({ email: username, pass: password }, [comment1]);
-    }
+    await this.postService.create({
+      type: 'youtube',
+      link: videoUploaded,
+      user: {
+        id: this.userId,
+      },
+      video: {
+        id: video.id,
+      },
+    });
   }
 
   private async downloadFile(url: string, format: string) {
@@ -485,8 +702,17 @@ export class TasksService {
     });
   }
 
+  private async createFolder(folder: string) {
+    const tmpFolder = join(__dirname, '..', '..', folder);
+    const isTmp = existsSync(tmpFolder);
+
+    if (!isTmp) {
+      await mkdir(tmpFolder);
+    }
+  }
+
   private removeFile(filePath: string) {
-    fs.unlinkSync(filePath);
+    return unlink(filePath);
   }
 
   private async uploadToFacebook(
@@ -514,40 +740,13 @@ export class TasksService {
 
     await api.post(upload_url, null, {
       headers: {
-        file_url: video.output,
         Authorization: `OAuth ${token}`,
+        file_url: video.output,
       },
     });
 
-    const { data: statusData } = await api.get(`/v19.0/${video_id}`, {
-      params: {
-        fields: 'status',
-        access_token: token,
-      },
-    });
-
-    let { status } = JSON.parse(statusData);
-
-    let maxAttempts = 12;
-
-    while (status.video_status === 'processing' && maxAttempts > 0) {
-      await wait(10000);
-      const { data: statusData } = await api.get(`/v19.0/${video_id}`, {
-        params: {
-          fields: 'status',
-          access_token: token,
-        },
-      });
-
-      if (status.copyright_check_status.status === 'complete') {
-        maxAttempts--;
-      }
-
-      status = JSON.parse(statusData).status;
-    }
-
-    const reels = await api.post(
-      `/v19.0/${video_id}/video_reels`,
+    await api.post(
+      `/v19.0/${username}/video_reels`,
       JSON.stringify({
         access_token: token,
         video_id,
@@ -557,7 +756,18 @@ export class TasksService {
       }),
     );
 
-    console.log(reels);
+    this.logger.debug('Video uploaded to Facebook', new Date());
+
+    await this.postService.create({
+      type: 'meta',
+      code: video_id,
+      user: {
+        id: this.userId,
+      },
+      video: {
+        id: video.id,
+      },
+    });
   }
 
   private async uploadToInstagram(
@@ -627,19 +837,16 @@ export class TasksService {
 
     this.logger.debug('Video uploaded to Instagram', new Date());
 
-    if (this.product) {
-      await api.post(
-        `/${ig_container_id}/comments`,
-        JSON.stringify({
-          message: this.getProductMessage(this.product),
-        }),
-        {
-          headers: {
-            'Content-Type': 'application/json; charset=UTF-8',
-          },
-        },
-      );
-    }
+    await this.postService.create({
+      type: 'instagram',
+      code: ig_container_id,
+      user: {
+        id: this.userId,
+      },
+      video: {
+        id: video.id,
+      },
+    });
   }
 
   private async uploadToTiktok(video: Video, token: string) {
@@ -669,94 +876,13 @@ export class TasksService {
     await api.post('/v2/post/publish/video/init/', data);
   }
 
-  private async uploadToPinterest(video: Video, token: string) {
+  private async uploadToPinterest(/*video: Video, token: string*/) {
     const formData = new FormData();
 
     formData.append('media_type', 'video');
   }
 
   @Cron('*/15 * * * *')
-  async renderVideosCron() {
-    const videos = await this.videoService.findAll({
-      take: 5,
-      where: {
-        status: 'draft',
-      },
-    });
-
-    if (videos.length === 0) {
-      this.logger.debug('No videos to process', new Date());
-      return;
-    }
-
-    try {
-      const trydub = new Trydub();
-
-      await trydub.getTempMail();
-
-      await trydub.register();
-
-      const email = await trydub.waitForEmail();
-
-      const html = email.body.text;
-
-      await trydub.confirmEmail(html);
-
-      this.logger.debug(
-        'Account created',
-        trydub.email,
-        trydub.password,
-        new Date(),
-      );
-
-      await wait(1000);
-
-      await trydub.login();
-
-      for (const video of videos) {
-        const { link, name, originalLanguage, targetLanguage } = video;
-
-        await trydub.postProject({
-          name: (name || 'Untitled') + ' ' + new Date().toISOString(),
-          sourceUrl: link,
-          sourceLanguage: originalLanguage,
-          targetLanguage: targetLanguage,
-          mediaDuration: 0,
-          includeBackground: true,
-          speakerNumber: '0',
-        });
-      }
-
-      let projects = (await trydub.getProject()).filter(
-        (project) => project.status === 'completed',
-      );
-
-      while (projects.length < videos.length) {
-        await wait(60000);
-        projects = (await trydub.getProject()).filter(
-          (project) => project.status === 'completed',
-        );
-      }
-      for (const project of projects) {
-        const url = await trydub.createUrlProject(project.finalObject);
-
-        const video = videos.find((video) => video.link === project.sourceUrl);
-
-        await this.videoService.update(video.id, {
-          output: url,
-          status: 'ready',
-        });
-      }
-
-      this.logger.debug(
-        projects.join(', ') + ' projects output updated',
-        new Date(),
-      );
-    } catch (e) {
-      this.logger.error(e, new Date());
-    }
-  }
-
   private getProductMessage(product: Product) {
     return `${product.comment}: ${product.link}`;
   }
