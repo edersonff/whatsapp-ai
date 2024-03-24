@@ -28,6 +28,10 @@ export class Service<Entity> {
   constructor(private repository: Repository<Entity>) {}
 
   setUserId(userId: number) {
+    if (!userId) {
+      throw new Error('User id is required');
+    }
+
     this.userId = userId;
   }
 
