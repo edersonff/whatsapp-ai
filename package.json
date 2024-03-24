@@ -37,6 +37,7 @@
     "chatgpt": "^5.2.5",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "luxon": "^3.4.4",
     "mysql": "^2.18.1",
     "pg": "^8.11.3",
     "reflect-metadata": "^0.1.13",
