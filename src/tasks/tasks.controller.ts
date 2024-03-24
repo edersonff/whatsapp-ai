@@ -14,4 +14,9 @@ export class TaskController {
   async renderVideosCron() {
     await this.tasksService.renderVideosCron();
   }
+
+  @Post('/comment')
+  async commentVideosCron() {
+    await this.tasksService.commentVideosCron();
+  }
 }
