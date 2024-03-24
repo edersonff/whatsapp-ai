@@ -92,7 +92,7 @@ export class Service<Entity> {
 
   private whereOptions(options?: FindManyOptions<Entity>) {
     if (this.userId) {
-      const where: any = options.where || {};
+      const where: any = options?.where || {};
       options.where = { ...where, user: { id: this.userId } };
     }
     return options;
