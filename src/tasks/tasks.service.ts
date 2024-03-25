@@ -263,7 +263,7 @@ export class TasksService {
     private readonly categoryService: CategoryService,
   ) {}
 
-  @Cron('*/30 * * * *')
+  @Cron('0 * * * *')
   async renderVideosCron() {
     const videos = await this.videoService.findAll({
       take: 5,
