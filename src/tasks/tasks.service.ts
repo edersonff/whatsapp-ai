@@ -263,7 +263,7 @@ export class TasksService {
     private readonly categoryService: CategoryService,
   ) {}
 
-  @Cron('*/15 * * * *')
+  @Cron('*/30 * * * *')
   async renderVideosCron() {
     const videos = await this.videoService.findAll({
       take: 5,
@@ -354,7 +354,7 @@ export class TasksService {
     }
   }
 
-  @Cron('*/30 * * * *')
+  @Cron('*/15 * * * *')
   async commentVideosCron() {
     const twoHoursAgo = DateTime.now().minus({ minutes: 30 }).toJSDate();
 
@@ -485,7 +485,7 @@ export class TasksService {
     });
   }
 
-  @Cron('*/10 * * * *')
+  @Cron('*/15 * * * *')
   async publishVideosCron() {
     const users = await this.userService.findAll({
       where: {
