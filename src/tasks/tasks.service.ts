@@ -348,7 +348,7 @@ export class TasksService {
 
       this.logger.debug('All videos rendered', new Date());
     } catch (e) {
-      console.log(e);
+      console.error(e);
       this.logger.error(e, new Date());
     }
   }
