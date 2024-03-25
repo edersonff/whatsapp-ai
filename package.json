@@ -38,6 +38,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "luxon": "^3.4.4",
+    "mail.tm-api": "^3.0.1",
     "mysql": "^2.18.1",
     "pg": "^8.11.3",
     "reflect-metadata": "^0.1.13",

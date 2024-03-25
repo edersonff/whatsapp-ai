@@ -16,7 +16,6 @@ import {
   upload as uploadToYoutube,
   comment as commentYoutube,
 } from 'youtube-videos-uploader';
-import { Create } from 'tmpmail';
 import { createWriteStream, existsSync } from 'fs';
 import { join } from 'path';
 import { mkdir, unlink } from 'fs/promises';
@@ -27,6 +26,8 @@ import { DateTime } from 'luxon';
 import { LessThan } from 'typeorm';
 import { PostService } from 'src/post/post.service';
 import { CategoryService } from 'src/category/category.service';
+import { createAccount } from 'mail.tm-api';
+import Account from 'mail.tm-api/dist/classes/Account';
 
 const apiSignout = new Axios({
   baseURL: 'https://app.trydub.com',
@@ -99,7 +100,7 @@ class Trydub {
   password: string = '';
   cookie: string = '';
 
-  tempMail: Create;
+  tempMail: Account;
 
   constructor() {
     this.getUniqueName();
@@ -122,15 +123,9 @@ class Trydub {
   };
 
   getTempMail = async () => {
-    const client = await Create();
+    const client = await createAccount();
 
-    const email: string = await new Promise((resolve) => {
-      client.on('ready', (email) => {
-        resolve(email);
-      });
-    });
-
-    this.email = email;
+    this.email = client.address;
 
     this.tempMail = client;
   };
@@ -178,16 +173,16 @@ class Trydub {
   };
 
   waitForEmail = async () => {
-    let emails = await this.tempMail.fetch();
+    let mails = await this.tempMail.mails.fetchAll(1);
 
-    while (emails.length === 0) {
+    while (mails.length === 0) {
       await wait(1000);
-      emails = await this.tempMail.fetch();
+      mails = await this.tempMail.mails.fetchAll(1);
     }
 
-    const email = await this.tempMail.findMessage(emails[0]._id);
+    const mail = await this.tempMail.mails.fetch(mails[0].id);
 
-    return email;
+    return mail;
   };
 
   confirmEmail = async (html: string) => {
@@ -289,26 +284,15 @@ export class TasksService {
     );
 
     try {
-      console.log('Init');
       const trydub = new Trydub();
-
-      console.log('Get a Mail');
 
       await trydub.getTempMail();
 
-      console.log('Registing a new account');
-
       await trydub.register();
 
-      console.log('Waiting for email');
+      const email: any = await trydub.waitForEmail();
 
-      const email = await trydub.waitForEmail();
-
-      console.log('Getting html');
-
-      const html = email.body.text;
-
-      console.log('Confirming email');
+      const html = email.text;
 
       await trydub.confirmEmail(html);
 
