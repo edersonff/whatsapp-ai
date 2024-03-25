@@ -367,13 +367,11 @@ export class TasksService {
         user: {
           socials: true,
         },
-        video: true,
-      },
-    });
-
-    const categories = await this.categoryService.findAll({
-      relations: {
-        products: true,
+        video: {
+          category: {
+            products: true,
+          },
+        },
       },
     });
 
@@ -385,21 +383,12 @@ export class TasksService {
     for (const post of posts) {
       const { type, link, video, code, user } = post;
 
-      console.log(1);
-      const product = categories
-        .map((category) => category.products)
-        .flat()
-        .find((product) => product.category.id === video.category.id);
+      const { category } = video;
 
-      console.log(2);
-      const category = categories.find(
-        (category) => category.id === video.category.id,
-      );
-      console.log(3);
+      const product = category.products[0];
 
       const social = user.socials.find((social) => social.type === type);
 
-      console.log(4);
       if (!product || !category) {
         continue;
       }
@@ -484,7 +473,7 @@ export class TasksService {
       },
     });
 
-    await api.post(`/${code}/comments`, null, {
+    const data = await api.post(`/${code}/comments`, null, {
       headers: {
         'Content-Type': 'application/json; charset=UTF-8',
       },
@@ -492,6 +481,8 @@ export class TasksService {
         message: comment,
       },
     });
+
+    console.log(data);
   }
 
   @Cron('*/15 * * * *')
