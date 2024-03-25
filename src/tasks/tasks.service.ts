@@ -663,7 +663,11 @@ export class TasksService {
       { email: username, pass: password },
       [video1],
       {
-        args: ['--no-sandbox'],
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-extensions',
+        ],
       },
     );
 
