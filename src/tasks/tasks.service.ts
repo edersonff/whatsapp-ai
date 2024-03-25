@@ -895,6 +895,6 @@ export class TasksService {
   }
 
   private getProductMessage(product: Product) {
-    return `${product.comment}: ${product.link}`;
+    return `${product.comment} ${product.link}`;
   }
 }
