@@ -473,7 +473,7 @@ export class TasksService {
       },
     });
 
-    const data = await api.post(`/${code}/comments`, null, {
+    await api.post(`/${code}/comments`, null, {
       headers: {
         'Content-Type': 'application/json; charset=UTF-8',
       },
@@ -481,8 +481,6 @@ export class TasksService {
         message: comment,
       },
     });
-
-    console.log(data);
   }
 
   @Cron('*/15 * * * *')
@@ -834,7 +832,7 @@ export class TasksService {
       status_code = JSON.parse(dataStatus).status_code;
     }
 
-    await api.post(
+    const { data: publishData } = await api.post(
       `/v19.0/${username}/media_publish`,
       JSON.stringify({
         creation_id: ig_container_id,
@@ -847,11 +845,13 @@ export class TasksService {
       },
     );
 
+    const ig_media_id = JSON.parse(publishData).id;
+
     this.logger.debug('Video uploaded to Instagram', new Date());
 
     await this.postService.create({
       type: 'instagram',
-      code: ig_container_id,
+      code: ig_media_id,
       user: {
         id: this.userId,
       },
