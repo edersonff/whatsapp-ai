@@ -882,7 +882,6 @@ export class TasksService {
     formData.append('media_type', 'video');
   }
 
-  @Cron('*/15 * * * *')
   private getProductMessage(product: Product) {
     return `${product.comment}: ${product.link}`;
   }
