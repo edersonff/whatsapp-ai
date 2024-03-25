@@ -289,15 +289,26 @@ export class TasksService {
     );
 
     try {
+      console.log('Init');
       const trydub = new Trydub();
+
+      console.log('Get a Mail');
 
       await trydub.getTempMail();
 
+      console.log('Registing a new account');
+
       await trydub.register();
+
+      console.log('Waiting for email');
 
       const email = await trydub.waitForEmail();
 
+      console.log('Getting html');
+
       const html = email.body.text;
+
+      console.log('Confirming email');
 
       await trydub.confirmEmail(html);
 
