@@ -385,16 +385,21 @@ export class TasksService {
     for (const post of posts) {
       const { type, link, video, code, user } = post;
 
+      console.log(1);
+      const product = categories
+        .map((category) => category.products)
+        .flat()
+        .find((product) => product.category.id === video.category.id);
+
+      console.log(2);
       const category = categories.find(
         (category) => category.id === video.category.id,
       );
-
-      const product = category.products.find(
-        (product) => product.category.id === category.id,
-      );
+      console.log(3);
 
       const social = user.socials.find((social) => social.type === type);
 
+      console.log(4);
       if (!product || !category) {
         continue;
       }
