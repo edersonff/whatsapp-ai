@@ -27,13 +27,13 @@ export class Video {
   @Column({ type: 'text', nullable: true })
   description?: string;
 
-  @Column({ type: 'varchar', length: 512, nullable: true })
+  @Column({ type: 'text', nullable: true })
   tags?: string;
 
   @Column({ type: 'varchar', length: 72 })
   link: string;
 
-  @Column({ type: 'varchar', length: 600, nullable: true })
+  @Column({ type: 'text', nullable: true })
   output?: string;
 
   @Column({
