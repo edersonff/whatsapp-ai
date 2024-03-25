@@ -1,7 +1,7 @@
-import { IsEmail, IsString, IsUrl } from 'class-validator';
+import { IsString, IsUrl } from 'class-validator';
 
 export class CreateProductDto {
-  @IsEmail()
+  @IsString()
   title?: string;
 
   @IsUrl()
