@@ -662,6 +662,9 @@ export class TasksService {
     const [videoUploaded] = await uploadToYoutube(
       { email: username, pass: password },
       [video1],
+      {
+        args: ['--no-sandbox'],
+      },
     );
 
     await this.removeFile(file);
