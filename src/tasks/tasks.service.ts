@@ -282,6 +282,12 @@ export class TasksService {
       return;
     }
 
+    this.logger.debug(
+      'Videos to process',
+      videos.map((video) => video.link),
+      new Date(),
+    );
+
     try {
       const trydub = new Trydub();
 
