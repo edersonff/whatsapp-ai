@@ -422,6 +422,10 @@ export class TasksService {
         await this.postService.update(post.id, {
           status: 'error',
         });
+
+        this.logger.error(e, new Date());
+
+        continue;
       }
 
       await this.postService.update(post.id, {
@@ -545,6 +549,10 @@ export class TasksService {
             status: 'error',
             error: String(e?.message).substring(0, 96),
           });
+
+          this.logger.error(e, new Date());
+
+          continue;
         }
 
         await this.videoService.update(video.id, {
