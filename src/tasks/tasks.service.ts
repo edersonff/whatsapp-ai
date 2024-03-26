@@ -26,8 +26,12 @@ import { DateTime } from 'luxon';
 import { LessThan } from 'typeorm';
 import { PostService } from 'src/post/post.service';
 import { CategoryService } from 'src/category/category.service';
-import { createAccount } from 'mail.tm-api';
+import { createAccount, setConfig } from 'mail.tm-api';
 import Account from 'mail.tm-api/dist/classes/Account';
+
+setConfig({
+  mailService: 'mail.gw',
+});
 
 const apiSignout = new Axios({
   baseURL: 'https://app.trydub.com',
@@ -186,16 +190,12 @@ class Trydub {
   waitForEmail = async () => {
     let mails = await this.tempMail.mails.fetchAll(1);
 
-    console.log({ mails });
-
     while (mails.length === 0) {
       await wait(1000);
       mails = await this.tempMail.mails.fetchAll(1);
-      console.log({ mails });
     }
 
     const mail = await this.tempMail.mails.fetch(mails[0].id);
-    console.log({ mail });
 
     return mail;
   };
