@@ -128,13 +128,10 @@ class Trydub {
 
   getTempMail = async () => {
     const client = await createAccount();
-    console.log({ client });
 
     this.email = client.address;
-    console.log({ email: this.email });
 
     this.tempMail = client;
-    console.log({ tempMail: this.tempMail });
   };
 
   register = async () => {
@@ -144,21 +141,13 @@ class Trydub {
     formData.append('1_password', this.password);
     formData.append('0', '["$K1"]');
 
-    console.log({
-      formData,
-    });
-
     const registerPost = apiSignout.post('/register', formData, {
       headers: {
         'Next-Action': 'f848affe288a368678657e5ceee8cca4eaa9d869',
       },
     });
 
-    console.log({ registerPost });
-
-    const data = await registerPost;
-
-    console.log({ data });
+    await registerPost;
 
     await wait(1000);
 
@@ -204,8 +193,6 @@ class Trydub {
     const confirmUrl =
       'https://app.trydub.com/auth/confirm?' +
       html.split('https://app.trydub.com/auth/confirm?')[1].split(']')[0];
-
-    console.log({ confirmUrl });
 
     await apiSignout.get(decodeURIComponent(confirmUrl));
   };
@@ -301,24 +288,17 @@ export class TasksService {
     );
 
     try {
-      console.log(1);
       const trydub = new Trydub();
 
-      console.log(2);
       await trydub.getTempMail();
-      console.log(3);
 
       await trydub.register();
-      console.log(4);
 
       const email: any = await trydub.waitForEmail();
-      console.log(5);
 
       const html = email.text;
-      console.log(6);
 
       await trydub.confirmEmail(html);
-      console.log(7);
 
       this.logger.debug(
         'Account created',
