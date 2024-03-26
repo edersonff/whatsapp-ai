@@ -179,9 +179,17 @@ class Trydub {
   waitForEmail = async () => {
     let mails = await this.tempMail.mails.fetchAll(1);
 
-    while (mails.length === 0) {
+    let maxAttempts = 100;
+
+    while (mails.length === 0 && maxAttempts > 0) {
       await wait(1000);
       mails = await this.tempMail.mails.fetchAll(1);
+
+      maxAttempts--;
+    }
+
+    if (maxAttempts === 0) {
+      throw new Error('Email not found');
     }
 
     const mail = await this.tempMail.mails.fetch(mails[0].id);
